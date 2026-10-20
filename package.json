@@ -8,6 +8,7 @@
     "capture": "node render/capture.mjs",
     "encode": "node render/encode.mjs",
     "audio": "node audio/synth.mjs",
+    "srt": "node render/srt.mjs",
     "build": "npm run audio && npm run capture && npm run encode",
     "qa": "node render/qa.mjs"
   },

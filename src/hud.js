@@ -4,14 +4,14 @@ import { CHAPTERS, SUBTITLES, DURATION } from './timeline.js';
 
 export function drawHUD(ctx, t) {
   const chapter = CHAPTERS.find((c) => t >= c.start && t < c.end) || CHAPTERS[CHAPTERS.length - 1];
-  text(ctx, chapter.label, 6, 3, { color: C.silver });
+  text(ctx, chapter.label, 6, 2, { color: C.silver });
 
   const sec = t.toFixed(1).padStart(4, '0');
-  text(ctx, sec + 's', 314, 3, { color: C.slate, align: 'right' });
+  text(ctx, sec + 's', 314, 2, { color: C.slate, align: 'right' });
 
-  rect(ctx, 6, 17, 308, 1, C.charcoal);
+  rect(ctx, 6, 18, 308, 1, C.charcoal);
   const progress = Math.max(0, Math.min(308, Math.round((308 * t) / DURATION)));
-  rect(ctx, 6, 17, progress, 1, C.yellow);
+  rect(ctx, 6, 18, progress, 1, C.yellow);
 
   const sub = SUBTITLES.find((s) => t >= s.start && t < s.end);
   rect(ctx, 0, 152, 320, 28, C.ink);

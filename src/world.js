@@ -56,6 +56,13 @@ export function drawCorridor(ctx, scrollX, opts = {}) {
 
 export function drawChipCity(ctx, t) {
   fill(ctx, C.ink);
+  // Night sky
+  for (let i = 0; i < 48; i++) {
+    const x = (i * 53) % 320;
+    const y = 6 + ((i * 29) % 52);
+    const twinkle = (i + Math.floor(t * 2)) % 9 === 0;
+    rect(ctx, x, y, 1, 1, twinkle ? C.white : C.slate);
+  }
   // A skyline of chip blocks
   for (let i = 0; i < 14; i++) {
     const w = 18 + (i * 7) % 22;

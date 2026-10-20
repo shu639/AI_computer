@@ -12,7 +12,8 @@ function drawCircuitBackdrop(ctx) {
   }
 }
 
-export function drawChatWorld(ctx, t) {
+export function drawChatWorld(ctx, t, opts = {}) {
+  const { answerOverride = null, showStatus = true } = opts;
   fill(ctx, C.ink);
   drawCircuitBackdrop(ctx);
 
@@ -30,7 +31,7 @@ export function drawChatWorld(ctx, t) {
   }
 
   // Thinking status
-  if (t >= 1.7 && t < 3.25) {
+  if (showStatus && t >= 1.7 && t < 3.25) {
     const dots = '.'.repeat(1 + (Math.floor(t * 3) % 3));
     rect(ctx, 38, 70, 150, 18, C.charcoal);
     text(ctx, '正在思考' + dots, 46, 74, { color: C.silver });
@@ -43,9 +44,11 @@ export function drawChatWorld(ctx, t) {
   text(ctx, '发送', 238, 74 + by, { color: C.ink });
 
   // Answer bubble
-  if (t >= 3.2) {
+  const answer = answerOverride !== null
+    ? answerOverride
+    : (t >= 3.2 ? typewriter('你好！有什么可以帮你？', t, 3.2, 12) : '');
+  if (answerOverride !== null ? answer.length > 0 : t >= 3.2) {
     rect(ctx, 64, 92, 188, 36, C.blue);
-    const answer = typewriter('你好！有什么可以帮你？', t, 3.2, 12);
     text(ctx, answer.slice(0, 3), 72, 98, { color: C.white });
     text(ctx, answer.slice(3), 72, 111, { color: C.white });
   }
