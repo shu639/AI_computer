@@ -41,7 +41,7 @@ function findFfmpeg() {
 }
 
 const ffmpeg = findFfmpeg();
-const scale = 'scale=1920:1080:flags=neighbor';
+const scale = 'scale=1920:1080:flags=lanczos';
 const vin = ['-y', '-framerate', String(fps), '-i', path.join(framesDir, '%05d.png')];
 
 const vArgs = [
@@ -64,7 +64,7 @@ if (existsSync(audioPath)) {
       '-i', mixed,
       '-i', audioPath,
       '-c:v', 'copy',
-      '-af', 'highpass=f=60,treble=g=2,loudnorm=I=-16:TP=-2.0:LRA=11',
+      '-af', 'highpass=f=60,treble=g=2,loudnorm=I=-16:TP=-2.0:LRA=11,volume=0.9',
       '-ar', '48000',
       '-c:a', 'aac',
       '-b:a', '192k',

@@ -6,10 +6,12 @@
   "description": "120s pixel-art explainer: the language of table-tennis spin",
   "scripts": {
     "capture": "node render/capture.mjs 120 30",
-    "stills": "node render/stills.mjs --times 0,4,10,18,25,30,36,45,50,56,62,68,74,80,88,95,101,108,114,119 --scale 6",
+    "stills": "node render/stills.mjs --times 0,4,10,18,25,30,36,45,50,56,62,68,74,80,88,95,101,108,114,119 --scale 1",
+    "audio": "node audio/synth.mjs",
     "encode": "node render/encode.mjs",
     "srt": "node render/srt.mjs",
-    "qa": "node render/qa.mjs"
+    "qa": "node render/qa.mjs",
+    "build": "npm run audio && npm run capture && npm run encode && npm run srt && npm run qa"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "1.1.0",
