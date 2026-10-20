@@ -8,7 +8,7 @@
 
 - 时长：120 秒
 - 画幅：1920×1080 / 30fps / H.264
-- 声音：程序化音效（无配音、无连续 BGM），AAC 48kHz
+- 声音：程序化比赛音效（木质触拍、台面落点、胶皮短 squeak、低音量比赛脉冲），无配音、无旋律 BGM，AAC 48kHz
 - 预览：[`preview/pingpong-spin-120s.mp4`](preview/pingpong-spin-120s.mp4)
 - 海报：[`preview/poster.png`](preview/poster.png)
 - 联系表：[`preview/contact-sheet.png`](preview/contact-sheet.png)
