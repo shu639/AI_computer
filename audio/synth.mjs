@@ -6,6 +6,7 @@ import path from 'node:path';
 const SR = 48000;
 const DUR = 60;
 const N = SR * DUR;
+const BGM_ENABLED = process.env.BGM === '1';
 const L = new Float32Array(N);
 const R = new Float32Array(N);
 
@@ -116,69 +117,69 @@ function addKick(start, vol = 0.18) {
 function sfx(name, t, param = 0) {
   switch (name) {
     case 'click':
-      addNoise(t, 0.025, 0.12, { decay: 0.008 });
-      addTone(t, 0.03, 1600 + param * 120, { wave: 'square', vol: 0.04, duty: 0.2, release: 0.01 });
+      addNoise(t, 0.025, 0.08, { decay: 0.008 });
+      addTone(t, 0.03, 1600 + param * 120, { wave: 'square', vol: 0.025, duty: 0.2, release: 0.01 });
       break;
     case 'send':
-      addNoise(t, 0.04, 0.14, { decay: 0.012 });
-      addTone(t, 0.09, 660, { wave: 'square', vol: 0.08, duty: 0.25, release: 0.03 });
-      addTone(t + 0.05, 0.08, 990, { wave: 'triangle', vol: 0.06, release: 0.03 });
+      addNoise(t, 0.04, 0.1, { decay: 0.012 });
+      addTone(t, 0.09, 660, { wave: 'square', vol: 0.06, duty: 0.25, release: 0.03 });
+      addTone(t + 0.05, 0.08, 990, { wave: 'triangle', vol: 0.045, release: 0.03 });
       break;
     case 'blip':
-      addTone(t, 0.06, 880 + param * 110, { wave: 'square', vol: 0.07, duty: 0.25, release: 0.02 });
+      addTone(t, 0.06, 880 + param * 110, { wave: 'square', vol: 0.05, duty: 0.25, release: 0.02 });
       break;
     case 'chime':
       [880, 1108.73, 1318.51].forEach((f, i) => {
-        addTone(t + i * 0.085, 0.16, f, { wave: 'triangle', vol: 0.09, release: 0.08 });
+        addTone(t + i * 0.085, 0.16, f, { wave: 'triangle', vol: 0.065, release: 0.08 });
       });
       break;
     case 'sweep':
-      addGlide(t, 6.0, 260, 45, { wave: 'saw', vol: 0.06 });
-      addNoise(t, 6.0, 0.035, { decay: 2.5 });
+      addGlide(t, 0.9, 300, 70, { wave: 'saw', vol: 0.04 });
+      addNoise(t, 0.8, 0.02, { decay: 0.35 });
       break;
     case 'heart':
-      addKick(t, 0.12);
+      addKick(t, 0.08);
       break;
     case 'step':
-      addNoise(t, 0.05, 0.05, { decay: 0.02 });
-      addTone(t, 0.05, 180, { wave: 'square', vol: 0.03, duty: 0.25, release: 0.02 });
+      addNoise(t, 0.05, 0.03, { decay: 0.02 });
+      addTone(t, 0.05, 180, { wave: 'square', vol: 0.02, duty: 0.25, release: 0.02 });
       break;
     case 'chest':
-      addNoise(t, 0.25, 0.1, { decay: 0.08 });
-      addGlide(t, 0.4, 220, 660, { wave: 'square', vol: 0.06 });
+      addNoise(t, 0.25, 0.08, { decay: 0.08 });
+      addGlide(t, 0.4, 220, 660, { wave: 'square', vol: 0.045 });
       break;
     case 'card':
       [659.25, 880, 1174.66].forEach((f, i) => {
-        addTone(t + i * 0.06, 0.18, f, { wave: 'triangle', vol: 0.07, release: 0.08 });
+        addTone(t + i * 0.06, 0.18, f, { wave: 'triangle', vol: 0.05, release: 0.08 });
       });
       break;
     case 'flip':
-      addNoise(t, 0.06, 0.08, { decay: 0.02 });
-      addTone(t, 0.08, 520, { wave: 'square', vol: 0.05, duty: 0.3, release: 0.03 });
+      addNoise(t, 0.06, 0.05, { decay: 0.02 });
+      addTone(t, 0.08, 520, { wave: 'square', vol: 0.03, duty: 0.3, release: 0.03 });
       break;
     case 'relay':
-      addNoise(t, 0.03, 0.07, { decay: 0.01 });
-      addTone(t, 0.04, 1200, { wave: 'square', vol: 0.04, duty: 0.2, release: 0.01 });
+      addNoise(t, 0.03, 0.04, { decay: 0.01 });
+      addTone(t, 0.04, 1200, { wave: 'square', vol: 0.025, duty: 0.2, release: 0.01 });
       break;
     case 'charge':
-      addGlide(t, 1.6, 180, 720, { wave: 'square', vol: 0.05 });
+      addGlide(t, 1.2, 180, 720, { wave: 'square', vol: 0.035 });
       break;
     case 'hit':
-      addNoise(t, 0.12, 0.14, { decay: 0.04 });
-      addTone(t, 0.1, 150, { wave: 'square', vol: 0.09, duty: 0.25, release: 0.05 });
+      addNoise(t, 0.12, 0.1, { decay: 0.04 });
+      addTone(t, 0.1, 150, { wave: 'square', vol: 0.06, duty: 0.25, release: 0.05 });
       break;
     case 'level':
       [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-        addTone(t + i * 0.07, 0.16, f, { wave: 'square', vol: 0.07, duty: 0.25, release: 0.06 });
+        addTone(t + i * 0.07, 0.16, f, { wave: 'square', vol: 0.055, duty: 0.25, release: 0.06 });
       });
       break;
     case 'uparp':
       [523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((f, i) => {
-        addTone(t + i * 0.08, 0.2, f, { wave: 'triangle', vol: 0.06, release: 0.1 });
+        addTone(t + i * 0.08, 0.2, f, { wave: 'triangle', vol: 0.05, release: 0.1 });
       });
       break;
     case 'type':
-      addTone(t, 0.035, 1000 + (param % 5) * 80, { wave: 'square', vol: 0.035, duty: 0.2, release: 0.01 });
+      addTone(t, 0.035, 1000 + (param % 5) * 80, { wave: 'square', vol: 0.022, duty: 0.2, release: 0.01 });
       break;
     case 'final':
       [220, 329.63, 440, 554.37].forEach((f, i) => {
@@ -191,35 +192,33 @@ function sfx(name, t, param = 0) {
 }
 
 // --- SFX timeline -----------------------------------------------------------
+// Diegetic sound only. Continuous BGM is off by default; run with BGM=1 to add it.
 sfx('click', 0.55, 0);
-sfx('click', 0.85, 1);
-sfx('click', 1.15, 2);
+sfx('click', 0.9, 1);
 sfx('send', 1.6);
 sfx('blip', 2.0, 0);
-sfx('blip', 2.3, 1);
-sfx('blip', 2.6, 2);
+sfx('blip', 2.5, 1);
 sfx('chime', 3.2);
-for (let t = 4.0; t < 10.0; t += 0.8) sfx('heart', t);
 sfx('sweep', 4.0);
-for (let t = 10.2; t < 14.8; t += 0.4) sfx('step', t);
+sfx('heart', 5.0);
+sfx('heart', 7.0);
+for (let t = 10.4; t < 14.8; t += 0.8) sfx('step', t);
 sfx('chest', 15.0);
 sfx('card', 15.6);
 sfx('flip', 20.1);
-sfx('flip', 21.0);
 sfx('relay', 22.0);
 sfx('flip', 23.5);
-sfx('relay', 25.0);
 sfx('relay', 27.0);
-sfx('charge', 36.4);
 sfx('hit', 33.8);
-sfx('hit', 35.0);
-sfx('hit', 36.2);
+sfx('hit', 35.2);
+sfx('charge', 36.6);
 sfx('level', 39.2);
 sfx('uparp', 42.0);
-for (let t = 47.5; t < 48.7; t += 0.09) sfx('type', t, Math.round((t * 100) % 5));
-sfx('final', 52.0);
+for (let t = 47.5; t < 48.6; t += 0.16) sfx('type', t, Math.round((t * 100) % 5));
+sfx('chime', 52.0);
 
-// --- BGM sequencer ----------------------------------------------------------
+// --- BGM sequencer (off by default; run with BGM=1 to enable) ---------------
+if (BGM_ENABLED) {
 const BPM = 78;
 const STEP = 60 / BPM / 4; // 16th note
 const CHORDS = [
@@ -241,54 +240,80 @@ for (let i = 0; i < steps; i++) {
   const root = ROOTS[bar % 4];
 
   if (t < 4) {
-    // Intro: a single pulsing note every quarter.
-    if (s % 4 === 0) addTone(t, STEP * 3.5, NOTE(chord[0] + 12), { wave: 'triangle', vol: 0.055, release: 0.2 });
+    // Intro: a single pulsing note every quarter, with an audible high counter-pulse.
+    if (s % 4 === 0) {
+      addTone(t, STEP * 3.5, NOTE(chord[0] + 12), { wave: 'triangle', vol: 0.065, release: 0.2 });
+      addTone(t, STEP * 2, NOTE(chord[0] + 24), { wave: 'square', vol: 0.035, duty: 0.125, release: 0.1 });
+    }
   } else if (t < 10) {
     // Dive: low drone and a slow pulse.
     if (s % 8 === 0) addTone(t, STEP * 7, NOTE(root - 12), { wave: 'triangle', vol: 0.075, release: 0.3 });
-    if (s % 8 === 4) addTone(t, STEP * 3, NOTE(chord[2] + 12), { wave: 'sine', vol: 0.035, release: 0.2 });
+    if (s % 8 === 4) addTone(t, STEP * 3, NOTE(chord[2] + 12), { wave: 'sine', vol: 0.045, release: 0.2 });
+    if (s % 4 === 2) addTone(t, STEP * 1.2, NOTE(chord[1] + 24), { wave: 'sine', vol: 0.03, release: 0.1 });
   } else if (t < 42) {
     // Main groove.
     if (s === 0 || s === 8) {
-      addTone(t, STEP * 3, NOTE(root - 12), { wave: 'triangle', vol: 0.1, release: 0.12 });
+      addTone(t, STEP * 3, NOTE(root - 12), { wave: 'triangle', vol: 0.075, release: 0.12 });
       addKick(t, 0.13);
     }
-    if (s === 4 || s === 12) addNoise(t, 0.08, 0.04, { decay: 0.035 });
+    if (s === 4 || s === 12) addNoise(t, 0.08, 0.05, { decay: 0.035 });
     if (s % 2 === 0) {
-      addNoise(t, 0.02, 0.018, { decay: 0.008 });
+      addNoise(t, 0.02, 0.03, { decay: 0.008 });
       addTone(t, STEP * 1.4, NOTE(chord[(s / 2) % 3] + 12), {
         wave: 'square',
-        vol: 0.038,
+        vol: 0.055,
         duty: 0.25,
         release: 0.04,
       });
     }
-    if (s % 4 === 0) {
-      addTone(t, STEP * 2.2, NOTE(MELODY[(bar * 4 + s / 4) % 16]), {
+    if (s % 4 === 2) {
+      addTone(t, STEP * 0.8, NOTE(chord[(s / 2) % 3] + 24), {
         wave: 'square',
-        vol: 0.05,
+        vol: 0.02,
+        duty: 0.125,
+        release: 0.03,
+      });
+    }
+    if (s % 4 === 0) {
+      const melody = MELODY[(bar * 4 + s / 4) % 16];
+      addTone(t, STEP * 2.2, NOTE(melody), {
+        wave: 'square',
+        vol: 0.085,
         duty: 0.5,
         release: 0.08,
+      });
+      addTone(t, STEP * 1.4, NOTE(melody + 12), {
+        wave: 'square',
+        vol: 0.025,
+        duty: 0.25,
+        release: 0.05,
       });
     }
   } else if (t < 52) {
     // Write-back: brighter, more forward motion.
     if (s % 4 === 0) {
-      addTone(t, STEP * 3, NOTE(root - 12), { wave: 'triangle', vol: 0.085, release: 0.12 });
+      addTone(t, STEP * 3, NOTE(root - 12), { wave: 'triangle', vol: 0.07, release: 0.12 });
       if (s === 0 || s === 8) addKick(t, 0.1);
     }
     if (s % 2 === 0) {
       addTone(t, STEP * 1.6, NOTE(chord[(s / 2) % 3] + 24), {
         wave: 'sine',
-        vol: 0.04,
+        vol: 0.06,
         release: 0.06,
       });
     }
     if (s % 4 === 0) {
-      addTone(t, STEP * 2.5, NOTE(MELODY[(bar * 4 + s / 4 + 4) % 16] + 12), {
+      const m = MELODY[(bar * 4 + s / 4 + 4) % 16] + 12;
+      addTone(t, STEP * 2.5, NOTE(m), {
         wave: 'triangle',
-        vol: 0.045,
+        vol: 0.075,
         release: 0.1,
+      });
+      addTone(t, STEP * 1.5, NOTE(m + 12), {
+        wave: 'square',
+        vol: 0.02,
+        duty: 0.125,
+        release: 0.06,
       });
     }
   } else {
@@ -296,7 +321,7 @@ for (let i = 0; i < steps; i++) {
     if (s === 0) {
       chord.forEach((n) => addTone(t, STEP * 14, NOTE(n), {
         wave: 'triangle',
-        vol: 0.032,
+        vol: 0.045,
         attack: 0.03,
         sustain: 0.75,
         release: 0.8,
@@ -305,12 +330,13 @@ for (let i = 0; i < steps; i++) {
     if (s % 4 === 0) {
       addTone(t, STEP * 3, NOTE(MELODY[(bar * 4 + s / 4) % 16] + 12), {
         wave: 'square',
-        vol: 0.038,
+        vol: 0.06,
         duty: 0.25,
         release: 0.2,
       });
     }
   }
+}
 }
 
 // --- Mix and write ----------------------------------------------------------

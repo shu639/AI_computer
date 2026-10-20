@@ -8,7 +8,8 @@
 
 - **Phase 0 完成**：320×180 逻辑画布、Sweetie 16 色、Fusion Pixel 12px 中文像素字体、Playwright 截帧、FFmpeg 编码链路全部跑通。
 - **Phase 1 完成**：8 秒样片（开场聊天 → 像素下潜 → 内存长廊），`preview/sample-8s.mp4`。
-- **Phase 2 完成**：60 秒全片，七个场景（发送/下潜/取指/译码/执行/写回/回答），程序化芯片音乐与音效，1920×1080 H.264 + AAC 48kHz，响度约 -14.8 LUFS。
+- **Phase 2 完成**：60 秒全片，七个场景（发送/下潜/取指/译码/执行/写回/回答），**音效为主、BGM 默认关闭**，1920×1080 H.264 + AAC 48kHz，响度约 -16 LUFS。
+- 需要连续芯片音乐时：`$env:BGM='1'; node audio/synth.mjs`，再重新编码。
 - 全片：`preview/ai-chip-60s.mp4`；海报：`preview/poster.png`；联系表：`preview/contact-sheet.png`。
 - 字幕：`docs/subtitles.srt`。
 - 制作原理与复用方法：[`docs/how-it-was-made.md`](docs/how-it-was-made.md)。

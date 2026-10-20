@@ -58,7 +58,7 @@ if (existsSync(audioPath)) {
       '-i', mixed,
       '-i', audioPath,
       '-c:v', 'copy',
-      '-af', 'loudnorm=I=-14:TP=-2.0:LRA=11',
+      '-af', 'highpass=f=60,treble=g=2,loudnorm=I=-16:TP=-2.0:LRA=11',
       '-ar', '48000',
       '-c:a', 'aac',
       '-b:a', '192k',
