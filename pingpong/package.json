@@ -1,0 +1,19 @@
+{
+  "name": "pingpong-spin-explainer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "120s pixel-art explainer: the language of table-tennis spin",
+  "scripts": {
+    "capture": "node render/capture.mjs 120 30",
+    "stills": "node render/stills.mjs --times 0,4,10,18,25,30,36,45,50,56,62,68,74,80,88,95,101,108,114,119 --scale 6",
+    "encode": "node render/encode.mjs",
+    "srt": "node render/srt.mjs",
+    "qa": "node render/qa.mjs"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "1.1.0",
+    "@vp-tw/cjk-web-fonts-fusion-pixel-font": "^0.0.1",
+    "playwright-core": "1.64.1"
+  }
+}
