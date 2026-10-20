@@ -1,5 +1,6 @@
-// Procedural SFX for the 120s spin explainer. No samples, no continuous BGM.
-// Every sound is an event; silence between events is intentional.
+// Procedural table-tennis SFX for the 120s spin explainer.
+// Design goals: tight wooden impacts, hard table ticks, short rubber squeaks,
+// and a low match pulse. No long broadband noise tails, no "static" hiss.
 import { writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
@@ -9,7 +10,6 @@ const N = SR * DUR;
 const L = new Float32Array(N);
 const R = new Float32Array(N);
 
-const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 let seed = 0x51a7c0de;
@@ -23,17 +23,16 @@ function panGains(pan) {
   return [Math.cos(a), Math.sin(a)];
 }
 
+// --- Tonal layers -----------------------------------------------------------
+
 function addTone(start, dur, freq, opts = {}) {
   const {
-    wave = 'triangle',
-    vol = 0.08,
+    wave = 'sine',
+    vol = 0.05,
     pan = 0,
     duty = 0.5,
-    attack = 0.006,
-    decay = 0.05,
-    sustain = 0.55,
-    release = 0.08,
-    vibrato = 0,
+    attack = 0.004,
+    release = 0.06,
   } = opts;
   const s0 = Math.max(0, Math.floor(start * SR));
   const s1 = Math.min(N, Math.floor((start + dur) * SR));
@@ -41,143 +40,285 @@ function addTone(start, dur, freq, opts = {}) {
   const [gl, gr] = panGains(pan);
   let phase = 0;
   const inc = freq / SR;
-  const relStart = Math.max(attack + decay, dur - release);
   for (let i = s0; i < s1; i++) {
     const tt = (i - s0) / SR;
-    let env;
-    if (tt < attack) env = tt / attack;
-    else if (tt < attack + decay) env = 1 - (1 - sustain) * ((tt - attack) / decay);
-    else env = sustain;
-    if (tt > relStart) env *= clamp(1 - (tt - relStart) / release, 0, 1);
-    env = clamp(env, 0, 1);
-    const vib = vibrato ? 1 + vibrato * Math.sin(2 * Math.PI * 6 * tt) : 1;
-    phase += inc * vib;
+    let env = Math.min(1, tt / attack);
+    env *= Math.min(1, (dur - tt) / release);
+    phase += inc;
     const p = phase % 1;
     let v = 0;
     if (wave === 'square') v = p < duty ? 1 : -1;
     else if (wave === 'triangle') v = 4 * Math.abs(p - 0.5) - 1;
-    else if (wave === 'saw') v = 2 * p - 1;
-    else if (wave === 'sine') v = Math.sin(2 * Math.PI * p);
+    else v = Math.sin(2 * Math.PI * p);
     const s = v * env * vol;
     L[i] += s * gl;
     R[i] += s * gr;
   }
 }
 
-function addGlide(start, dur, f0, f1, opts = {}) {
-  const { wave = 'sine', vol = 0.06, pan = 0, duty = 0.5 } = opts;
+// A short pitched body with an exponential pitch drop and a fast decay.
+function addImpactTone(start, dur, f0, f1, vol, pan = 0) {
   const s0 = Math.max(0, Math.floor(start * SR));
   const s1 = Math.min(N, Math.floor((start + dur) * SR));
   if (s1 <= s0) return;
   const [gl, gr] = panGains(pan);
   let phase = 0;
   for (let i = s0; i < s1; i++) {
-    const p = (i - s0) / (s1 - s0);
-    const f = f0 * Math.pow(f1 / f0, p);
+    const tt = (i - s0) / SR;
+    const p = tt / dur;
+    const f = f1 + (f0 - f1) * Math.exp(-p * 7);
     phase += f / SR;
-    const ph = phase % 1;
-    const v = wave === 'square' ? (ph < duty ? 1 : -1) : wave === 'sine' ? Math.sin(2 * Math.PI * ph) : 2 * ph - 1;
-    const env = Math.min(1, p * 6) * Math.min(1, (1 - p) * 3);
-    const s = v * env * vol;
+    const env = Math.min(1, tt / 0.0012) * Math.exp(-tt / (dur * 0.24));
+    const s = Math.sin(2 * Math.PI * phase) * env * vol;
     L[i] += s * gl;
     R[i] += s * gr;
   }
 }
 
-function addNoise(start, dur, vol = 0.04, opts = {}) {
-  const { pan = 0, decay = 0.05, attack = 0.002 } = opts;
+function addClick(start, freq, vol, pan = 0, dur = 0.014) {
   const s0 = Math.max(0, Math.floor(start * SR));
   const s1 = Math.min(N, Math.floor((start + dur) * SR));
+  if (s1 <= s0) return;
   const [gl, gr] = panGains(pan);
   for (let i = s0; i < s1; i++) {
     const tt = (i - s0) / SR;
-    const env = Math.min(1, tt / attack) * Math.exp(-tt / decay);
-    const s = noise() * env * vol;
+    const env = Math.exp(-tt / (dur * 0.3));
+    const s = Math.sin(2 * Math.PI * freq * tt) * env * vol;
     L[i] += s * gl;
     R[i] += s * gr;
   }
 }
 
-function addKick(start, vol = 0.14, freq = 58) {
+// Band-limited noise: one-pole low-pass at `high`, then subtract a low-pass at
+// `low`. This keeps slaps and paper sounds out of the harsh high band.
+function addBandNoise(start, dur, vol, opts = {}) {
+  const {
+    low = 500,
+    high = 3500,
+    decay = 0.02,
+    attack = 0.0008,
+    pan = 0,
+  } = opts;
   const s0 = Math.max(0, Math.floor(start * SR));
-  const s1 = Math.min(N, Math.floor((start + 0.24) * SR));
-  let phase = 0;
+  const s1 = Math.min(N, Math.floor((start + dur) * SR));
+  if (s1 <= s0) return;
+  const [gl, gr] = panGains(pan);
+  const aHigh = 1 - Math.exp((-2 * Math.PI * high) / SR);
+  const aLow = 1 - Math.exp((-2 * Math.PI * low) / SR);
+  let lp1 = 0;
+  let lp2 = 0;
   for (let i = s0; i < s1; i++) {
     const tt = (i - s0) / SR;
-    const f = freq * Math.exp(-tt * 14) + 38;
-    phase += f / SR;
-    const env = Math.exp(-tt * 9);
-    const s = Math.sin(2 * Math.PI * phase) * env * vol;
-    L[i] += s;
-    R[i] += s;
+    const n = noise();
+    lp1 += (n - lp1) * aHigh;
+    lp2 += (lp1 - lp2) * aLow;
+    const band = lp1 - lp2;
+    const env = Math.min(1, tt / attack) * Math.exp(-tt / decay);
+    const s = band * env * vol;
+    L[i] += s * gl;
+    R[i] += s * gr;
   }
 }
 
-function sfx(name, t, param = 0) {
+// --- Impacts ---------------------------------------------------------------
+
+function addPock(start, vol = 1, pan = 0) {
+  // Rubber/wood contact: very short bright transient, warm body, low thump.
+  addBandNoise(start, 0.028, 0.075 * vol, {
+    low: 900,
+    high: 3600,
+    decay: 0.005,
+    pan,
+  });
+  addImpactTone(start, 0.12, 330, 145, 0.12 * vol, pan);
+  addImpactTone(start, 0.075, 95, 58, 0.065 * vol, pan);
+  addClick(start, 1900, 0.022 * vol, pan, 0.012);
+}
+
+function addTok(start, vol = 1, pan = 0) {
+  // Table contact: harder and higher than the paddle.
+  addBandNoise(start, 0.02, 0.055 * vol, {
+    low: 700,
+    high: 3200,
+    decay: 0.004,
+    pan,
+  });
+  addImpactTone(start, 0.085, 640, 300, 0.085 * vol, pan);
+  addImpactTone(start, 0.055, 135, 82, 0.04 * vol, pan);
+  addClick(start, 2450, 0.018 * vol, pan, 0.01);
+}
+
+function addRim(start, vol = 1, pan = 0) {
+  addClick(start, 1350, 0.035 * vol, pan, 0.02);
+  addClick(start, 2250, 0.016 * vol, pan, 0.008);
+  addBandNoise(start, 0.014, 0.018 * vol, {
+    low: 1200,
+    high: 4200,
+    decay: 0.004,
+    pan,
+  });
+}
+
+function addKickSoft(start, vol = 1, pan = 0) {
+  addImpactTone(start, 0.28, 88, 46, 0.055 * vol, pan);
+  addClick(start, 120, 0.01 * vol, pan, 0.02);
+}
+
+function addSqueak(start, vol = 1, pan = 0) {
+  const dur = 0.085;
+  const s0 = Math.max(0, Math.floor(start * SR));
+  const s1 = Math.min(N, Math.floor((start + dur) * SR));
+  if (s1 <= s0) return;
+  const [gl, gr] = panGains(pan);
+  let phase = 0;
+  for (let i = s0; i < s1; i++) {
+    const tt = (i - s0) / SR;
+    const p = tt / dur;
+    const f = 950 + 520 * p;
+    phase += f / SR;
+    const env = Math.min(1, p * 12) * Math.min(1, (1 - p) * 4);
+    const s = Math.sin(2 * Math.PI * phase) * env * 0.028 * vol;
+    L[i] += s * gl;
+    R[i] += s * gr;
+  }
+  addBandNoise(start, 0.06, 0.014 * vol, {
+    low: 1400,
+    high: 3200,
+    decay: 0.018,
+    pan,
+  });
+}
+
+function addWhooshLow(start, dur = 0.6, vol = 1, pan = 0) {
+  // Low, soft air movement: no high-frequency hiss.
+  addBandNoise(start, dur, 0.026 * vol, {
+    low: 60,
+    high: 520,
+    attack: dur * 0.22,
+    decay: dur * 0.42,
+    pan,
+  });
+  const s0 = Math.max(0, Math.floor(start * SR));
+  const s1 = Math.min(N, Math.floor((start + dur) * SR));
+  if (s1 <= s0) return;
+  const [gl, gr] = panGains(pan);
+  let phase = 0;
+  for (let i = s0; i < s1; i++) {
+    const tt = (i - s0) / SR;
+    const p = tt / dur;
+    const f = 150 - 55 * p;
+    phase += f / SR;
+    const env = Math.sin(Math.PI * p) ** 2;
+    const s = Math.sin(2 * Math.PI * phase) * env * 0.018 * vol;
+    L[i] += s * gl;
+    R[i] += s * gr;
+  }
+}
+
+function addPaper(start, vol = 1, pan = 0) {
+  addBandNoise(start, 0.2, 0.045 * vol, {
+    low: 250,
+    high: 1600,
+    decay: 0.055,
+    attack: 0.004,
+    pan,
+  });
+  addTone(start, 0.14, 210, { wave: 'triangle', vol: 0.012 * vol, pan, release: 0.08 });
+}
+
+function addStamp(start, vol = 1) {
+  addKickSoft(start, 0.9 * vol);
+  addBandNoise(start, 0.06, 0.04 * vol, {
+    low: 80,
+    high: 900,
+    decay: 0.018,
+  });
+  addTone(start, 0.08, 145, { wave: 'square', vol: 0.015 * vol, release: 0.05 });
+}
+
+function addChime(start, vol = 1) {
+  [880, 1108.73, 1318.51].forEach((f, i) => {
+    addTone(start + i * 0.09, 0.22, f, {
+      wave: 'triangle',
+      vol: 0.038 * vol,
+      release: 0.12,
+    });
+  });
+}
+
+function addBlip(start, param = 0, vol = 1) {
+  addTone(start, 0.055, 880 + param * 90, {
+    wave: 'triangle',
+    vol: 0.028 * vol,
+    release: 0.025,
+  });
+}
+
+function addFinal(start) {
+  [220, 329.63, 440, 554.37].forEach((f, i) => {
+    addTone(start + i * 0.03, 2.6, f, {
+      wave: 'sine',
+      vol: 0.035,
+      attack: 0.02,
+      release: 0.8,
+    });
+    addTone(start + i * 0.03, 2.2, f * 0.5, {
+      wave: 'triangle',
+      vol: 0.018,
+      attack: 0.03,
+      release: 0.8,
+    });
+  });
+}
+
+// A low, sparse match pulse. It should be felt more than heard.
+function matchBed(start, end, opts = {}) {
+  const { bpm = 104, vol = 1 } = opts;
+  const beat = 60 / bpm;
+  for (let i = 0; ; i++) {
+    const t = start + i * beat;
+    if (t >= end) break;
+    const bar = i % 4;
+    if (bar === 0 || bar === 2) addKickSoft(t, 0.11 * vol, 0);
+    if (bar === 1 || bar === 3) addRim(t, 0.012 * vol, bar === 1 ? -0.32 : 0.32);
+    if (bar === 2) addTok(t + beat * 0.5, 0.09 * vol, 0.2);
+  }
+}
+
+function sfx(name, t, param = 0, pan = 0) {
   switch (name) {
-    case 'paper':
-      addNoise(t, 0.28, 0.05, { decay: 0.09, pan: param });
-      addTone(t, 0.18, 240, { wave: 'triangle', vol: 0.018, pan: param, release: 0.1 });
-      break;
     case 'pock':
-      addNoise(t, 0.04, 0.11, { decay: 0.012 });
-      addTone(t, 0.08, 190 + param * 25, { wave: 'triangle', vol: 0.09, release: 0.05 });
-      addTone(t + 0.008, 0.05, 520 + param * 40, { wave: 'square', vol: 0.025, duty: 0.18, release: 0.03 });
+      addPock(t, 0.85, pan);
       break;
-    case 'tick':
-      addNoise(t, 0.025, 0.07, { decay: 0.008 });
-      addTone(t, 0.045, 1250 + param * 120, { wave: 'square', vol: 0.028, duty: 0.2, release: 0.02 });
+    case 'tok':
+      addTok(t, 0.7, pan);
       break;
-    case 'bounce':
-      addNoise(t, 0.05, 0.08, { decay: 0.018 });
-      addTone(t, 0.1, 320 + param * 50, { wave: 'triangle', vol: 0.07, release: 0.06 });
-      addTone(t + 0.01, 0.07, 880 + param * 70, { wave: 'sine', vol: 0.03, release: 0.04 });
-      break;
-    case 'brush':
-      addNoise(t, 0.16, 0.055, { decay: 0.045, pan: param });
-      addTone(t, 0.12, 740 + param * 60, { wave: 'triangle', vol: 0.035, release: 0.08 });
+    case 'rim':
+      addRim(t, 0.8, pan);
       break;
     case 'squeak':
-      addGlide(t, 0.16, 720, 1180, { wave: 'sine', vol: 0.045, pan: param });
-      addNoise(t, 0.12, 0.03, { decay: 0.05, pan: param });
+      addSqueak(t, 0.7, pan);
       break;
-    case 'air':
-      addNoise(t, 0.9, 0.04, { decay: 0.35, attack: 0.12, pan: param });
-      addGlide(t, 0.8, 140, 90, { wave: 'sine', vol: 0.018, pan: param });
-      break;
-    case 'whoosh':
-      addNoise(t, 0.5, 0.05, { decay: 0.18, attack: 0.04, pan: param });
-      addGlide(t, 0.45, 420, 120, { wave: 'sine', vol: 0.035, pan: param });
+    case 'paper':
+      addPaper(t, 0.8, pan);
       break;
     case 'stamp':
-      addNoise(t, 0.07, 0.08, { decay: 0.02 });
-      addKick(t, 0.1, 70);
-      addTone(t, 0.09, 150, { wave: 'square', vol: 0.035, duty: 0.2, release: 0.05 });
-      break;
-    case 'blip':
-      addTone(t, 0.07, 900 + param * 80, { wave: 'square', vol: 0.035, duty: 0.22, release: 0.03 });
+      addStamp(t, 1);
       break;
     case 'chime':
-      [880, 1108.73, 1318.51].forEach((f, i) => {
-        addTone(t + i * 0.09, 0.2, f, { wave: 'triangle', vol: 0.055, release: 0.1 });
-      });
+      addChime(t, 0.9);
       break;
-    case 'lowchime':
-      [220, 329.63, 440].forEach((f, i) => {
-        addTone(t + i * 0.12, 0.9, f, { wave: 'triangle', vol: 0.045, release: 0.4 });
-      });
+    case 'blip':
+      addBlip(t, param, 0.8);
+      break;
+    case 'whoosh':
+      addWhooshLow(t, 0.7, 0.9, pan);
+      break;
+    case 'air':
+      addWhooshLow(t, 0.9, 0.65, pan);
       break;
     case 'final':
-      [220, 329.63, 440, 554.37].forEach((f, i) => {
-        addTone(t + i * 0.03, 2.6, f, {
-          wave: 'triangle',
-          vol: 0.05,
-          attack: 0.02,
-          decay: 0.2,
-          sustain: 0.7,
-          release: 0.8,
-        });
-      });
+      addFinal(t);
       break;
     default:
       break;
@@ -185,81 +326,86 @@ function sfx(name, t, param = 0) {
 }
 
 // --- Event timeline ---------------------------------------------------------
-// Title card
-sfx('paper', 0.15, -0.2);
-sfx('stamp', 1.2);
+// Title
+sfx('rim', 0.35, 0, -0.2);
+sfx('paper', 1.05, 0, -0.2);
 sfx('chime', 1.45);
 
-// Hook
-sfx('tick', 2.0);
-sfx('pock', 2.35, 0);
-sfx('whoosh', 2.7, 0.2);
-sfx('tick', 4.2);
-sfx('whoosh', 5.8, -0.1);
-sfx('paper', 7.55, 0);
+// Hook: a short rally, then the curved serve and miss.
+matchBed(2.0, 7.6, { bpm: 112, vol: 0.7 });
+sfx('squeak', 2.0, 0, -0.3);
+sfx('pock', 2.35, 0, -0.35);
+sfx('tok', 2.85, 0, 0.2);
+sfx('pock', 4.2, 0, 0.4);
+sfx('whoosh', 5.8, 0, -0.1);
+sfx('stamp', 7.55);
 
 // Axis
-sfx('blip', 8.35, 0);
-sfx('lowchime', 10.6);
-sfx('paper', 12.8, -0.2);
-sfx('blip', 13.15, 0);
-sfx('blip', 13.45, 1);
-sfx('blip', 13.75, 2);
-sfx('tick', 17.4);
-sfx('tick', 18.0);
-sfx('paper', 20.0, 0.2);
+matchBed(8.0, 21.8, { bpm: 100, vol: 0.32 });
+sfx('rim', 10.6, 0, -0.2);
+sfx('rim', 12.8, 0, -0.2);
+sfx('rim', 13.15, 1, 0);
+sfx('rim', 13.5, 2, 0.2);
+sfx('rim', 17.4, 0, 0.2);
+sfx('rim', 18.0, 1, -0.2);
+sfx('paper', 20.0, 0, 0.2);
 
 // Friction
-sfx('pock', 25.0, 1);
-sfx('squeak', 27.6, 0.1);
-sfx('brush', 30.2, 0.1);
-sfx('brush', 32.8, -0.2);
-sfx('brush', 33.4, 0.2);
+matchBed(22.0, 41.8, { bpm: 100, vol: 0.32 });
+sfx('squeak', 22.4, 0, -0.2);
+sfx('pock', 25.0, 0, 0);
+sfx('squeak', 27.6, 0, 0.2);
+sfx('squeak', 30.2, 0, 0.1);
+sfx('pock', 32.8, 0, -0.2);
+sfx('pock', 33.4, 0, 0.2);
 sfx('stamp', 35.7);
-sfx('tick', 38.4);
-sfx('paper', 40.0, 0);
+sfx('rim', 38.4, 0, 0.2);
+sfx('paper', 40.0, 0, 0);
 
 // Air
-sfx('air', 42.6, -0.2);
-sfx('air', 45.0, 0.2);
-sfx('whoosh', 47.8, 0);
-sfx('stamp', 50.4);
-sfx('blip', 53.0, 1);
-sfx('blip', 56.0, 0);
-sfx('blip', 58.6, 1);
-sfx('blip', 61.2, 2);
-sfx('paper', 63.55, 0);
+matchBed(42.0, 63.8, { bpm: 96, vol: 0.25 });
+sfx('air', 42.6, 0, -0.2);
+sfx('air', 45.0, 0, 0.2);
+sfx('whoosh', 47.8, 0, 0);
+sfx('rim', 50.4, 0, 0);
+sfx('rim', 53.0, 0, 0.2);
+sfx('rim', 56.0, 1, 0);
+sfx('rim', 58.6, 2, 0.2);
+sfx('rim', 61.2, 3, -0.2);
+sfx('paper', 63.55, 0, 0);
 
-// Bounce
-sfx('bounce', 64.8, 0);
-sfx('bounce', 67.4, 0);
-sfx('pock', 69.8, 1);
-sfx('tick', 72.4);
-sfx('bounce', 75.2, 2);
-sfx('tick', 77.8);
-sfx('tick', 80.2);
+// Bounce: table ticks and paddle pocks.
+matchBed(64.6, 83.6, { bpm: 112, vol: 0.8 });
+sfx('tok', 64.8, 0, 0);
+sfx('tok', 67.4, 0, 0.2);
+sfx('pock', 69.8, 1, 0.3);
+sfx('rim', 72.4, 0, 0);
+sfx('tok', 75.2, 2, -0.2);
+sfx('rim', 77.8, 0, -0.2);
+sfx('tok', 80.2, 0, 0.3);
 sfx('chime', 82.3);
-sfx('paper', 83.55, 0);
+sfx('paper', 83.55);
 
-// Read & return
-sfx('blip', 84.6, 0);
-sfx('tick', 86.6);
-sfx('tick', 87.1);
-sfx('tick', 87.6);
-sfx('brush', 89.2, -0.2);
-sfx('whoosh', 91.6, 0.2);
-sfx('pock', 94.2, 0);
-sfx('pock', 96.8, 1);
-sfx('brush', 99.6, 0);
+// Read and return: alternating left/right hits.
+matchBed(84.6, 103.6, { bpm: 112, vol: 0.75 });
+sfx('rim', 84.6, 0, 0);
+sfx('rim', 86.6, 1, -0.3);
+sfx('rim', 87.1, 2, 0);
+sfx('rim', 87.6, 3, 0.3);
+sfx('squeak', 89.2, 0, 0);
+sfx('pock', 91.6, 0, 0.2);
+sfx('pock', 94.2, 0, -0.3);
+sfx('pock', 96.8, 0, 0.3);
+sfx('squeak', 99.6, 0, 0);
 sfx('chime', 101.8);
-sfx('paper', 103.55, 0);
+sfx('paper', 103.55);
 
 // Outro
-sfx('lowchime', 104.5);
-sfx('air', 106.8, 0);
-sfx('bounce', 109.4, 0);
+sfx('rim', 104.5, 0, 0);
+sfx('air', 106.8, 0, 0);
+sfx('tok', 109.4, 0, 0);
 sfx('chime', 112.0);
-sfx('blip', 114.8, 0);
+sfx('pock', 114.8, 0, 0);
 sfx('final', 116.8);
 
 // --- Mix and write ----------------------------------------------------------
@@ -267,7 +413,7 @@ let peak = 0;
 for (let i = 0; i < N; i++) {
   peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i]));
 }
-const gain = peak > 0 ? 0.8 / peak : 1;
+const gain = peak > 0 ? 0.82 / peak : 1;
 
 const outDir = path.resolve(import.meta.dirname, '..', 'out');
 mkdirSync(outDir, { recursive: true });
@@ -287,11 +433,12 @@ buf.writeUInt16LE(16, 34);
 buf.write('data', 36);
 buf.writeUInt32LE(N * 4, 40);
 
+// Gentle soft clip adds impact without hard digital clipping.
 for (let i = 0; i < N; i++) {
-  const l = clamp(Math.round(L[i] * gain * 32767), -32768, 32767);
-  const r = clamp(Math.round(R[i] * gain * 32767), -32768, 32767);
-  buf.writeInt16LE(l, 44 + i * 4);
-  buf.writeInt16LE(r, 46 + i * 4);
+  const l = Math.tanh(L[i] * gain * 1.1) * 0.92;
+  const r = Math.tanh(R[i] * gain * 1.1) * 0.92;
+  buf.writeInt16LE(Math.round(clamp(l, -1, 1) * 32767), 44 + i * 4);
+  buf.writeInt16LE(Math.round(clamp(r, -1, 1) * 32767), 46 + i * 4);
 }
 writeFileSync(outFile, buf);
-console.log(`wrote ${outFile} (${DUR}s, ${SR}Hz stereo, peak ${peak.toFixed(3)}, gain ${gain.toFixed(3)})`);
+console.log(`wrote ${outFile} (${DUR}s, ${SR}Hz stereo, raw peak ${peak.toFixed(3)}, gain ${gain.toFixed(3)})`);
