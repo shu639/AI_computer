@@ -11,6 +11,7 @@
 - **Phase 2 完成**：60 秒全片，七个场景（发送/下潜/取指/译码/执行/写回/回答），程序化芯片音乐与音效，1920×1080 H.264 + AAC 48kHz，响度约 -14.8 LUFS。
 - 全片：`preview/ai-chip-60s.mp4`；海报：`preview/poster.png`；联系表：`preview/contact-sheet.png`。
 - 字幕：`docs/subtitles.srt`。
+- 制作原理与复用方法：[`docs/how-it-was-made.md`](docs/how-it-was-made.md)。
 
 ## 技术栈
 
