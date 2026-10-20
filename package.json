@@ -1,0 +1,20 @@
+{
+  "name": "opus-pixel-explainer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "60s pixel-art explainer rendered from code",
+  "scripts": {
+    "capture": "node render/capture.mjs",
+    "encode": "node render/encode.mjs",
+    "audio": "node audio/synth.mjs",
+    "build": "npm run audio && npm run capture && npm run encode",
+    "qa": "node render/qa.mjs"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "1.1.0",
+    "@fontsource/fusion-pixel-12px-monospaced-sc": "5.3.0",
+    "@vp-tw/cjk-web-fonts-fusion-pixel-font": "^0.0.1",
+    "playwright-core": "1.64.1"
+  }
+}
